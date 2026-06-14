@@ -169,6 +169,101 @@ public class AllAuthClient(
     public suspend fun deleteSessions(ids: List<String>): AllAuthResponse =
         request("DELETE", requireUrls().sessions, mapOf("sessions" to ids))
 
+    public suspend fun getAuthenticators(): AllAuthResponse =
+        request("GET", requireUrls().authenticators)
+
+    public suspend fun getTOTPAuthenticator(): AllAuthResponse =
+        request("GET", requireUrls().totpAuthenticator)
+
+    public suspend fun activateTOTP(code: String): AllAuthResponse =
+        request("POST", requireUrls().totpAuthenticator, mapOf("code" to code))
+
+    public suspend fun deactivateTOTP(): AllAuthResponse =
+        request("DELETE", requireUrls().totpAuthenticator)
+
+    public suspend fun authenticateTOTP(code: String): AllAuthResponse =
+        request("POST", requireUrls().mfaAuthenticate, mapOf("code" to code))
+
+    public suspend fun reauthenticateTOTP(code: String): AllAuthResponse =
+        request("POST", requireUrls().mfaReauthenticate, mapOf("code" to code))
+
+    public suspend fun getRecoveryCodes(): AllAuthResponse =
+        request("GET", requireUrls().recoveryCodesAuthenticator)
+
+    public suspend fun generateRecoveryCodes(): AllAuthResponse =
+        request("POST", requireUrls().recoveryCodesAuthenticator)
+
+    public suspend fun authenticateWithRecoveryCode(code: String): AllAuthResponse =
+        request("POST", requireUrls().mfaAuthenticate, mapOf("code" to code))
+
+    public suspend fun reauthenticateWithRecoveryCode(code: String): AllAuthResponse =
+        request("POST", requireUrls().mfaReauthenticate, mapOf("code" to code))
+
+    public suspend fun trustDevice(): AllAuthResponse =
+        request("POST", requireUrls().mfaTrust)
+
+    public suspend fun getWebAuthnAuthenticators(): AllAuthResponse =
+        request("GET", requireUrls().webauthnAuthenticator)
+
+    public suspend fun addWebAuthnAuthenticator(
+        name: String,
+        credential: Map<String, Any?>,
+    ): AllAuthResponse =
+        request("POST", requireUrls().webauthnAuthenticator, mapOf("name" to name, "credential" to credential))
+
+    public suspend fun updateWebAuthnAuthenticator(id: String, name: String): AllAuthResponse =
+        request("PUT", requireUrls().webauthnAuthenticator, mapOf("id" to id, "name" to name))
+
+    public suspend fun deleteWebAuthnAuthenticators(ids: List<String>): AllAuthResponse =
+        request("DELETE", requireUrls().webauthnAuthenticator, mapOf("authenticators" to ids))
+
+    public suspend fun getWebAuthnAuthenticateOptions(): AllAuthResponse =
+        request("GET", requireUrls().webauthnAuthenticate)
+
+    public suspend fun authenticateWebAuthn(credential: Map<String, Any?>): AllAuthResponse =
+        request("POST", requireUrls().webauthnAuthenticate, mapOf("credential" to credential))
+
+    public suspend fun getWebAuthnReauthenticateOptions(): AllAuthResponse =
+        request("GET", requireUrls().webauthnReauthenticate)
+
+    public suspend fun reauthenticateWebAuthn(credential: Map<String, Any?>): AllAuthResponse =
+        request("POST", requireUrls().webauthnReauthenticate, mapOf("credential" to credential))
+
+    public suspend fun getWebAuthnLoginOptions(): AllAuthResponse =
+        request("GET", requireUrls().webauthnLogin)
+
+    public suspend fun loginWebAuthn(credential: Map<String, Any?>): AllAuthResponse =
+        request("POST", requireUrls().webauthnLogin, mapOf("credential" to credential))
+
+    public suspend fun getWebAuthnSignupOptions(): AllAuthResponse =
+        request("GET", requireUrls().webauthnSignup)
+
+    public suspend fun signupWebAuthn(name: String, credential: Map<String, Any?>): AllAuthResponse =
+        request("PUT", requireUrls().webauthnSignup, mapOf("name" to name, "credential" to credential))
+
+    public suspend fun getPasswordlessWebAuthnOptions(): AllAuthResponse =
+        request("GET", "${requireUrls().webauthnAuthenticator}?passwordless")
+
+    public suspend fun getProviders(): AllAuthResponse =
+        request("GET", requireUrls().providers)
+
+    public suspend fun disconnectProvider(providerId: String, accountUid: String): AllAuthResponse =
+        request("DELETE", requireUrls().providers, mapOf("provider" to providerId, "account" to accountUid))
+
+    public suspend fun authenticateWithProviderToken(
+        providerId: String,
+        token: Map<String, Any?>,
+        process: AuthProcess = AuthProcess.LOGIN,
+    ): AllAuthResponse =
+        request(
+            "POST",
+            requireUrls().providerToken,
+            mapOf("provider" to providerId, "token" to token, "process" to process.id),
+        )
+
+    public suspend fun completeProviderSignup(email: String): AllAuthResponse =
+        request("POST", requireUrls().providerSignup, mapOf("email" to email))
+
     public suspend fun refreshJWT(): AllAuthResponse {
         val task = refreshMutex.withLock {
             inFlightRefresh ?: refreshScope.async { performJWTRefresh() }.also { inFlightRefresh = it }
