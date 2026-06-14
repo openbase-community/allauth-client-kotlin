@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 public data class AuthState(
     val auth: AllAuthResponse? = null,
@@ -69,16 +70,22 @@ public class AuthRepository(
         }
     }
 
-    public suspend fun initialize() {
+    public suspend fun initialize(timeoutMillis: Long? = null) {
         _state.update { it.copy(isLoading = true) }
         try {
-            val config = client.getConfig()
-            val auth = client.getAuth()
+            val (config, auth) = if (timeoutMillis != null) {
+                withTimeout(timeoutMillis) { loadInitialAuth() }
+            } else {
+                loadInitialAuth()
+            }
             _state.update { it.copy(config = config, auth = auth, isLoading = false) }
         } catch (_: Exception) {
             _state.update { it.copy(isLoading = false) }
         }
     }
+
+    private suspend fun loadInitialAuth(): Pair<AllAuthResponse, AllAuthResponse> =
+        client.getConfig() to client.getAuth()
 
     public suspend fun refreshAuth() {
         runCatching { client.getAuth() }
