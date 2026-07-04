@@ -442,28 +442,7 @@ public class AllAuthClient(
     }
 
     private suspend fun handleAuthChange(response: AllAuthResponse, previousAuth: AllAuthResponse?) {
-        val previouslyAuthenticated = previousAuth?.isAuthenticated ?: false
-        val currentlyAuthenticated = response.isAuthenticated
-        val event = when {
-            !previouslyAuthenticated && currentlyAuthenticated && response.status == 200 ->
-                AuthChangeEvent.LOGGED_IN
-
-            previouslyAuthenticated && !currentlyAuthenticated && response.status == 401 ->
-                AuthChangeEvent.LOGGED_OUT
-
-            response.status == 401 && response.flows.any {
-                it["id"] == AuthFlow.REAUTHENTICATE.id || it["id"] == AuthFlow.MFA_REAUTHENTICATE.id
-            } -> AuthChangeEvent.REAUTHENTICATION_REQUIRED
-
-            response.status == 200 && response.get("data", "flows") != null ->
-                AuthChangeEvent.FLOW_UPDATED
-
-            else -> null
-        }
-
-        if (event != null) {
-            _authChanges.emit(event)
-        }
+        detectAuthChangeEvent(previousAuth, response)?.let { _authChanges.emit(it) }
     }
 
     private fun requireUrls(): AllAuthUrls =

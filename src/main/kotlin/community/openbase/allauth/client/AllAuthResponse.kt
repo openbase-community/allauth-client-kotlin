@@ -12,6 +12,10 @@ public data class AllAuthResponse(
     public val status: Int get() = intAt("status") ?: httpStatusCode
     public val isSuccess: Boolean get() = status == 200
     public val requiresAuth: Boolean get() = status == 401
+    public val requiresReauthentication: Boolean
+        get() = status == 401 && flows.any {
+            it["id"] == AuthFlow.REAUTHENTICATE.id || it["id"] == AuthFlow.MFA_REAUTHENTICATE.id
+        }
     public val isAuthenticated: Boolean get() = booleanAt("meta", "is_authenticated") ?: false
     public val user: Map<String, Any?>? get() = mapAt("data", "user")
 

@@ -16,13 +16,7 @@ public data class AuthState(
     val lastAuthChange: AuthChangeEvent? = null,
 ) {
     public val isAuthenticated: Boolean get() = auth?.isAuthenticated ?: false
-    public val requiresReauthentication: Boolean
-        get() {
-            val currentAuth = auth ?: return false
-            return currentAuth.status == 401 && currentAuth.flows.any {
-                it["id"] == AuthFlow.REAUTHENTICATE.id || it["id"] == AuthFlow.MFA_REAUTHENTICATE.id
-            }
-        }
+    public val requiresReauthentication: Boolean get() = auth?.requiresReauthentication ?: false
     public val user: Map<String, Any?>? get() = auth?.user
     public val pendingFlows: List<Map<String, Any?>> get() = auth?.pendingFlows ?: emptyList()
     public val emailAuthEnabled: Boolean get() = config?.stringAt("data", "account", "authentication_method") != "username"
@@ -104,19 +98,5 @@ public class AuthRepository(
     public fun detectAuthChange(
         previousAuth: AllAuthResponse?,
         currentAuth: AllAuthResponse?,
-    ): AuthChangeEvent? {
-        val wasAuthenticated = previousAuth?.isAuthenticated ?: false
-        val isNowAuthenticated = currentAuth?.isAuthenticated ?: false
-        val currentStatus = currentAuth?.status ?: 0
-
-        return when {
-            !wasAuthenticated && isNowAuthenticated && currentStatus == 200 -> AuthChangeEvent.LOGGED_IN
-            wasAuthenticated && !isNowAuthenticated && currentStatus == 401 -> AuthChangeEvent.LOGGED_OUT
-            currentStatus == 401 && currentAuth?.flows?.any {
-                it["id"] == AuthFlow.REAUTHENTICATE.id || it["id"] == AuthFlow.MFA_REAUTHENTICATE.id
-            } == true -> AuthChangeEvent.REAUTHENTICATION_REQUIRED
-            currentStatus == 200 && currentAuth?.get("data", "flows") != null -> AuthChangeEvent.FLOW_UPDATED
-            else -> null
-        }
-    }
+    ): AuthChangeEvent? = detectAuthChangeEvent(previousAuth, currentAuth)
 }

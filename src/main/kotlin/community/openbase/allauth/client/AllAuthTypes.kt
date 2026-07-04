@@ -34,6 +34,23 @@ public enum class AuthChangeEvent {
     FLOW_UPDATED,
 }
 
+internal fun detectAuthChangeEvent(
+    previousAuth: AllAuthResponse?,
+    currentAuth: AllAuthResponse?,
+): AuthChangeEvent? {
+    val current = currentAuth ?: return null
+    val wasAuthenticated = previousAuth?.isAuthenticated ?: false
+    val isNowAuthenticated = current.isAuthenticated
+
+    return when {
+        !wasAuthenticated && isNowAuthenticated && current.status == 200 -> AuthChangeEvent.LOGGED_IN
+        wasAuthenticated && !isNowAuthenticated && current.status == 401 -> AuthChangeEvent.LOGGED_OUT
+        current.requiresReauthentication -> AuthChangeEvent.REAUTHENTICATION_REQUIRED
+        current.status == 200 && current.get("data", "flows") != null -> AuthChangeEvent.FLOW_UPDATED
+        else -> null
+    }
+}
+
 public enum class LoginIdentifier {
     EMAIL,
     USERNAME,
