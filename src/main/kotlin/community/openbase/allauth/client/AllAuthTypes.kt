@@ -56,6 +56,31 @@ public enum class LoginIdentifier {
     USERNAME,
 }
 
+/**
+ * Decide which login identifier field ([LoginIdentifier.EMAIL] or
+ * [LoginIdentifier.USERNAME]) to send for a typed credential, driven by the
+ * server's advertised auth configuration rather than by guessing.
+ *
+ * - Email-only auth → always [LoginIdentifier.EMAIL].
+ * - Username-only auth → always [LoginIdentifier.USERNAME].
+ * - Both enabled (`authentication_method == "username_email"`) → the account
+ *   genuinely accepts either, so fall back to the "@" heuristic as a tiebreaker.
+ * - Neither / config unloaded → default to [LoginIdentifier.EMAIL].
+ *
+ * This is a pure function so it can be shared and unit-tested independently of
+ * any auth state, HTTP client, or Compose UI.
+ */
+public fun resolveLoginIdentifier(
+    emailEnabled: Boolean,
+    usernameEnabled: Boolean,
+    identifier: String,
+): LoginIdentifier = when {
+    emailEnabled && usernameEnabled ->
+        if (identifier.contains("@")) LoginIdentifier.EMAIL else LoginIdentifier.USERNAME
+    usernameEnabled -> LoginIdentifier.USERNAME
+    else -> LoginIdentifier.EMAIL
+}
+
 public sealed class AllAuthException(message: String, cause: Throwable? = null) : Exception(message, cause) {
     public class InvalidUrl(cause: Throwable? = null) : AllAuthException("Invalid URL", cause)
     public class InvalidResponse(cause: Throwable? = null) : AllAuthException("Invalid response from server", cause)

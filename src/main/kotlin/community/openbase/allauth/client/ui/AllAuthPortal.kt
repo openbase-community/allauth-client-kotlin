@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -22,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import community.openbase.allauth.client.AllAuthResponse
 import community.openbase.allauth.client.AuthFlow
@@ -109,11 +111,19 @@ private fun PasswordLoginCard(actions: AuthActions) {
     var error by remember { mutableStateOf<String?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
 
+    val identifierLabel = when {
+        authState.emailAuthEnabled && authState.usernameAuthEnabled -> "Email or username"
+        authState.usernameAuthEnabled -> "Username"
+        else -> "Email"
+    }
+    val identifierKeyboardType = if (authState.emailAuthEnabled) KeyboardType.Email else KeyboardType.Text
+
     AuthCard(title = "Sign in", response = response, error = error) {
         OutlinedTextField(
             value = identifier,
             onValueChange = { identifier = it },
-            label = { Text(if (authState.emailAuthEnabled) "Email or username" else "Username") },
+            label = { Text(identifierLabel) },
+            keyboardOptions = KeyboardOptions(keyboardType = identifierKeyboardType),
             modifier = Modifier.fillMaxWidth(),
         )
         PasswordField("Password", password) { password = it }

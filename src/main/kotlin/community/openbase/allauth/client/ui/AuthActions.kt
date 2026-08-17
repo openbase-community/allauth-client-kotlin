@@ -4,7 +4,7 @@ import community.openbase.allauth.client.AllAuthClient
 import community.openbase.allauth.client.AllAuthResponse
 import community.openbase.allauth.client.AuthRepository
 import community.openbase.allauth.client.AuthState
-import community.openbase.allauth.client.LoginIdentifier
+import community.openbase.allauth.client.resolveLoginIdentifier
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -91,11 +91,12 @@ public open class AllAuthActions(
     }
 
     override suspend fun login(identifier: String, password: String) {
-        val identifierType = if (identifier.contains("@")) {
-            LoginIdentifier.EMAIL
-        } else {
-            LoginIdentifier.USERNAME
-        }
+        val authState = repository.state.value
+        val identifierType = resolveLoginIdentifier(
+            emailEnabled = authState.emailAuthEnabled,
+            usernameEnabled = authState.usernameAuthEnabled,
+            identifier = identifier,
+        )
         client.login(identifier = identifier, password = password, identifierType = identifierType)
     }
 
