@@ -419,7 +419,18 @@ public class AllAuthClient(
             val decoded = if (responseBody.isBlank()) {
                 emptyMap()
             } else {
-                mapAdapter.fromJson(responseBody) ?: emptyMap()
+                val contentType = response.body?.contentType()
+                if (contentType != null && contentType.subtype != "json" && !contentType.subtype.endsWith("+json")) {
+                    throw AllAuthException.ApiError(
+                        "Authentication server returned an unexpected response " +
+                            "(HTTP ${response.code}, ${contentType.type}/${contentType.subtype}).",
+                    )
+                }
+                try {
+                    mapAdapter.fromJson(responseBody) ?: emptyMap()
+                } catch (error: IOException) {
+                    throw AllAuthException.InvalidResponse(error)
+                }
             }
             AllAuthResponse(response.code, decoded)
         }

@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -113,6 +114,41 @@ class AllAuthClientTest {
         assertEquals("session-1", storage.readSessionToken())
     }
 
+    @Test
+    fun nonJsonSignupFailureReturnsControlledApiError() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(500)
+                .setHeader("Content-Type", "text/html; charset=utf-8")
+                .setBody("<html>internal details must not reach the UI</html>"),
+        )
+        val client = newClient(InMemoryAllAuthTokenStorage())
+
+        val error = runCatching {
+            client.signUp("person@example.com", "password")
+        }.exceptionOrNull()
+
+        assertTrue(error is AllAuthException.ApiError)
+        assertEquals(
+            "Authentication server returned an unexpected response (HTTP 500, text/html).",
+            error?.message,
+        )
+        assertFalse(error?.message.orEmpty().contains("internal details"))
+        assertFalse(error?.message.orEmpty().contains("JsonReader"))
+    }
+
+    @Test
+    fun malformedJsonReturnsGenericInvalidResponse() = runTest {
+        server.enqueue(jsonResponse("not-json", code = 502))
+        val client = newClient(InMemoryAllAuthTokenStorage())
+
+        val error = runCatching { client.getAuth() }.exceptionOrNull()
+
+        assertTrue(error is AllAuthException.InvalidResponse)
+        assertEquals("Invalid response from server", error?.message)
+        assertFalse(error?.message.orEmpty().contains("JsonReader"))
+    }
+
     private fun newClient(storage: InMemoryAllAuthTokenStorage): AllAuthClient =
         AllAuthClient(httpClient = OkHttpClient(), tokenStorage = storage).also {
             it.setup(server.url("/").toString().trimEnd('/'))
@@ -124,4 +160,3 @@ class AllAuthClientTest {
             .setHeader("Content-Type", "application/json")
             .setBody(body)
 }
-
