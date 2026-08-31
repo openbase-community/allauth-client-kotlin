@@ -1,5 +1,6 @@
 package community.openbase.allauth.client.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -29,14 +31,6 @@ import community.openbase.allauth.client.AllAuthResponse
 import community.openbase.allauth.client.AuthFlow
 import community.openbase.allauth.client.AuthState
 import kotlinx.coroutines.launch
-
-internal enum class AuthMode {
-    Login,
-    Signup,
-    Code,
-    Reset,
-    Verify,
-}
 
 /**
  * Reusable AllAuth sign-in portal. Renders password login plus the secondary
@@ -55,7 +49,9 @@ public fun AllAuthPortal(
     modifier: Modifier = Modifier,
 ) {
     val authState by actions.state.collectAsState()
-    var mode by remember { mutableStateOf(AuthMode.Login) }
+    var uiState by rememberSaveable(stateSaver = AuthPortalUiState.Saver) {
+        mutableStateOf(AuthPortalUiState())
+    }
     val availableModes = AuthMode.entries.filter { item ->
         when (item) {
             AuthMode.Login, AuthMode.Reset, AuthMode.Verify -> true
@@ -64,9 +60,12 @@ public fun AllAuthPortal(
         }
     }
     LaunchedEffect(availableModes) {
-        if (mode !in availableModes) {
-            mode = AuthMode.Login
+        if (uiState.mode !in availableModes) {
+            uiState = uiState.navigateTo(AuthMode.Login)
         }
+    }
+    BackHandler(enabled = uiState.handlesSystemBack) {
+        uiState = uiState.navigateBack()
     }
 
     LazyColumn(
@@ -83,29 +82,38 @@ public fun AllAuthPortal(
         }
 
         item {
-            when (mode) {
+            when (uiState.mode) {
                 AuthMode.Login -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PasswordLoginCard(actions)
+                    PasswordLoginCard(
+                        actions = actions,
+                        identifier = uiState.loginIdentifier,
+                        onIdentifierChange = { identifier ->
+                            uiState = uiState.updateLoginIdentifier(identifier)
+                        },
+                    )
                     LoginSecondaryLinks(authState) { nextMode ->
                         if (nextMode in availableModes) {
-                            mode = nextMode
+                            uiState = uiState.navigateTo(nextMode)
                         }
                     }
                 }
-                AuthMode.Signup -> SignupCard(actions) { mode = AuthMode.Login }
-                AuthMode.Code -> LoginCodeCard(actions) { mode = AuthMode.Login }
-                AuthMode.Reset -> PasswordResetCard(actions) { mode = AuthMode.Login }
-                AuthMode.Verify -> VerifyEmailCard(actions) { mode = AuthMode.Login }
+                AuthMode.Signup -> SignupCard(actions) { uiState = uiState.navigateBack() }
+                AuthMode.Code -> LoginCodeCard(actions) { uiState = uiState.navigateBack() }
+                AuthMode.Reset -> PasswordResetCard(actions) { uiState = uiState.navigateBack() }
+                AuthMode.Verify -> VerifyEmailCard(actions) { uiState = uiState.navigateBack() }
             }
         }
     }
 }
 
 @Composable
-private fun PasswordLoginCard(actions: AuthActions) {
+private fun PasswordLoginCard(
+    actions: AuthActions,
+    identifier: String,
+    onIdentifierChange: (String) -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val authState by actions.state.collectAsState()
-    var identifier by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var response by remember { mutableStateOf<AllAuthResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -121,7 +129,7 @@ private fun PasswordLoginCard(actions: AuthActions) {
     AuthCard(title = "Sign in", response = response, error = error) {
         OutlinedTextField(
             value = identifier,
-            onValueChange = { identifier = it },
+            onValueChange = onIdentifierChange,
             label = { Text(identifierLabel) },
             keyboardOptions = KeyboardOptions(keyboardType = identifierKeyboardType),
             modifier = Modifier.fillMaxWidth(),
