@@ -32,4 +32,18 @@ class AuthPortalUiStateTest {
     fun systemBackRemainsAvailableToHostFromLoginMode() {
         assertFalse(AuthPortalUiState().handlesSystemBack)
     }
+
+    @Test
+    fun pendingEmailVerificationMovesToVerifyAndPrefillsLogin() {
+        val pending = AuthPortalUiState().showPendingEmailVerification("field@example.com")
+
+        assertEquals(AuthMode.Verify, pending.mode)
+        assertEquals("field@example.com", pending.loginIdentifier)
+        assertEquals("field@example.com", pending.pendingVerificationEmail)
+
+        val login = pending.navigateBack()
+        assertEquals(AuthMode.Login, login.mode)
+        assertEquals("field@example.com", login.loginIdentifier)
+        assertEquals(null, login.pendingVerificationEmail)
+    }
 }

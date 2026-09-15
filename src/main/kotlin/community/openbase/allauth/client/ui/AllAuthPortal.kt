@@ -97,10 +97,20 @@ public fun AllAuthPortal(
                         }
                     }
                 }
-                AuthMode.Signup -> SignupCard(actions) { uiState = uiState.navigateBack() }
+                AuthMode.Signup -> SignupCard(
+                    actions = actions,
+                    onVerificationRequired = { email ->
+                        uiState = uiState.showPendingEmailVerification(email)
+                    },
+                    onSignIn = { uiState = uiState.navigateBack() },
+                )
                 AuthMode.Code -> LoginCodeCard(actions) { uiState = uiState.navigateBack() }
                 AuthMode.Reset -> PasswordResetCard(actions) { uiState = uiState.navigateBack() }
-                AuthMode.Verify -> VerifyEmailCard(actions) { uiState = uiState.navigateBack() }
+                AuthMode.Verify -> VerifyEmailCard(
+                    actions = actions,
+                    pendingEmail = uiState.pendingVerificationEmail,
+                    onSignIn = { uiState = uiState.navigateBack() },
+                )
             }
         }
     }
@@ -186,6 +196,7 @@ private fun LoginSecondaryLinks(
 @Composable
 private fun SignupCard(
     actions: AuthActions,
+    onVerificationRequired: (String) -> Unit,
     onSignIn: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -209,7 +220,13 @@ private fun SignupCard(
                 scope.launch {
                     error = null
                     response = runCatching { actions.signUp(email, password, username) }
-                        .onSuccess { actions.initialize() }
+                        .onSuccess { result ->
+                            if (result.pendingFlow(AuthFlow.VERIFY_EMAIL) != null) {
+                                onVerificationRequired(email)
+                            } else {
+                                actions.initialize()
+                            }
+                        }
                         .getOrElse {
                             error = it.message
                             null
@@ -339,6 +356,7 @@ private fun PasswordResetCard(
 @Composable
 private fun VerifyEmailCard(
     actions: AuthActions,
+    pendingEmail: String?,
     onSignIn: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -347,36 +365,55 @@ private fun VerifyEmailCard(
     var error by remember { mutableStateOf<String?>(null) }
 
     AuthCard(title = "Verify email", response = response, error = error) {
-        OutlinedTextField(key, { key = it }, label = { Text("Verification key") }, modifier = Modifier.fillMaxWidth())
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = {
-                scope.launch {
-                    error = null
-                    response = runCatching { actions.getEmailVerification(key) }
-                        .getOrElse {
-                            error = it.message
-                            null
-                        }
-                }
-            }) {
-                Text("Check")
+        if (pendingEmail != null) {
+            Text("We sent a verification link to $pendingEmail. Open that link, then return to Openbase and sign in.")
+            Button(
+                onClick = {
+                    scope.launch {
+                        error = null
+                        response = runCatching { actions.requestEmailVerification(pendingEmail) }
+                            .getOrElse {
+                                error = it.message
+                                null
+                            }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Resend verification email")
             }
-            Button(onClick = {
-                scope.launch {
-                    error = null
-                    response = runCatching { actions.verifyEmail(key) }
-                        .onSuccess { actions.initialize() }
-                        .getOrElse {
-                            error = it.message
-                            null
-                        }
+        } else {
+            OutlinedTextField(key, { key = it }, label = { Text("Verification key") }, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    scope.launch {
+                        error = null
+                        response = runCatching { actions.getEmailVerification(key) }
+                            .getOrElse {
+                                error = it.message
+                                null
+                            }
+                    }
+                }) {
+                    Text("Check")
                 }
-            }) {
-                Text("Verify")
+                Button(onClick = {
+                    scope.launch {
+                        error = null
+                        response = runCatching { actions.verifyEmail(key) }
+                            .onSuccess { actions.initialize() }
+                            .getOrElse {
+                                error = it.message
+                                null
+                            }
+                    }
+                }) {
+                    Text("Verify")
+                }
             }
         }
         TextButton(onClick = onSignIn, modifier = Modifier.fillMaxWidth()) {
-            Text("Back to sign in")
+            Text(if (pendingEmail == null) "Back to sign in" else "Continue to sign in")
         }
     }
 }
