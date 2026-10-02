@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import community.openbase.allauth.client.AllAuthResponse
+import community.openbase.allauth.client.AuthFlow
 
 /**
  * Card container for a single auth form. Renders a title, the caller's fields,
@@ -56,10 +57,32 @@ internal fun PasswordField(label: String, value: String, onChange: (String) -> U
 @Composable
 internal fun ResponseSummary(response: AllAuthResponse) {
     val errors = response.generalErrors.joinToString()
+    val pending = pendingFlowSummary(response)
     when {
         errors.isNotBlank() -> Text(errors, color = MaterialTheme.colorScheme.error)
         response.isSuccess -> Text("Success.", color = MaterialTheme.colorScheme.primary)
+        pending != null -> Text(pending, color = MaterialTheme.colorScheme.primary)
         response.status >= 400 -> Text("Status ${response.status}", color = MaterialTheme.colorScheme.error)
+    }
+}
+
+/**
+ * allauth answers an unfinished flow with HTTP 401 plus `data.flows[].is_pending`:
+ * after `auth/code/request` that 401 means "code sent, now confirm it", not a
+ * failure (the Swift client applies such responses as the current auth state).
+ * Returns the human-readable next step for the first pending flow we know, or
+ * null when the 401 carries no pending flow and should be shown as an error.
+ */
+internal fun pendingFlowSummary(response: AllAuthResponse): String? {
+    if (response.status != 401) return null
+    return when {
+        response.pendingFlow(AuthFlow.LOGIN_BY_CODE) != null ->
+            "Code sent. Check your email and enter the code below."
+        response.pendingFlow(AuthFlow.VERIFY_EMAIL) != null ->
+            "Check your email for a verification link, then sign in."
+        response.pendingFlow(AuthFlow.MFA_AUTHENTICATE) != null ->
+            "Enter the code from your authenticator."
+        else -> null
     }
 }
 
