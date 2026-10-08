@@ -26,7 +26,7 @@ internal data class AuthPortalUiState(
     fun showPendingEmailVerification(email: String): AuthPortalUiState = copy(
         mode = AuthMode.Verify,
         loginIdentifier = email,
-        pendingVerificationEmail = email,
+        pendingVerificationEmail = email.ifBlank { null },
     )
 
     fun navigateBack(): AuthPortalUiState = copy(

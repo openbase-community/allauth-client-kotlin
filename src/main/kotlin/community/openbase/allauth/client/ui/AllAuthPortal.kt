@@ -64,6 +64,15 @@ public fun AllAuthPortal(
             uiState = uiState.navigateTo(AuthMode.Login)
         }
     }
+    // A session that is waiting on email verification (signup just happened,
+    // or the app was reopened mid-flow) belongs on the verify card, whatever
+    // card the user navigated to before the auth state caught up.
+    val verificationPending = authState.isPending(AuthFlow.VERIFY_EMAIL)
+    LaunchedEffect(verificationPending) {
+        if (verificationPending && uiState.mode != AuthMode.Verify) {
+            uiState = uiState.showPendingEmailVerification(uiState.loginIdentifier)
+        }
+    }
     BackHandler(enabled = uiState.handlesSystemBack) {
         uiState = uiState.navigateBack()
     }
@@ -365,11 +374,17 @@ private fun VerifyEmailCard(
     var response by remember { mutableStateOf<AllAuthResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    val codePending = authState.emailVerificationByCodeEnabled &&
+        (pendingEmail != null || authState.isPending(AuthFlow.VERIFY_EMAIL))
+
     AuthCard(title = "Verify email", response = response, error = error) {
-        if (pendingEmail != null && authState.emailVerificationByCodeEnabled) {
+        if (codePending) {
             // Code-based verification finishes sign-in right here: the
             // phone-only path never has to leave for a browser.
-            Text("We emailed a verification code to $pendingEmail. Enter it below.")
+            Text(
+                if (pendingEmail != null) "We emailed a verification code to $pendingEmail. Enter it below."
+                else "We emailed you a verification code. Enter it below.",
+            )
             OutlinedTextField(key, { key = it }, label = { Text("Verification code") }, modifier = Modifier.fillMaxWidth())
             Button(
                 onClick = {
@@ -387,20 +402,22 @@ private fun VerifyEmailCard(
             ) {
                 Text("Verify")
             }
-            TextButton(
-                onClick = {
-                    scope.launch {
-                        error = null
-                        response = runCatching { actions.requestEmailVerification(pendingEmail) }
-                            .getOrElse {
-                                error = it.message
-                                null
-                            }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Resend code")
+            if (pendingEmail != null) {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            error = null
+                            response = runCatching { actions.requestEmailVerification(pendingEmail) }
+                                .getOrElse {
+                                    error = it.message
+                                    null
+                                }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Resend code")
+                }
             }
         } else if (pendingEmail != null) {
             Text("We sent a verification link to $pendingEmail. Open that link, then return to Openbase and sign in.")
