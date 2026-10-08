@@ -26,6 +26,9 @@ public data class AuthState(
         }
     public val signupAllowed: Boolean get() = config?.booleanAt("data", "account", "is_open_for_signup") ?: true
     public val loginByCodeEnabled: Boolean get() = config?.booleanAt("data", "account", "login_by_code_enabled") ?: false
+    /** Signup verifies the address with an emailed code typed into the app, not a link. */
+    public val emailVerificationByCodeEnabled: Boolean
+        get() = config?.booleanAt("data", "account", "email_verification_by_code_enabled") ?: false
     public val mfaEnabled: Boolean get() = config?.booleanAt("data", "mfa", "enabled") ?: false
     public val socialProviders: List<Map<String, Any?>>
         get() = config?.listAt("data", "socialaccount", "providers")?.mapNotNull { it as? Map<String, Any?> }

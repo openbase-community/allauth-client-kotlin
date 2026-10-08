@@ -360,12 +360,49 @@ private fun VerifyEmailCard(
     onSignIn: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val authState by actions.state.collectAsState()
     var key by remember { mutableStateOf("") }
     var response by remember { mutableStateOf<AllAuthResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
     AuthCard(title = "Verify email", response = response, error = error) {
-        if (pendingEmail != null) {
+        if (pendingEmail != null && authState.emailVerificationByCodeEnabled) {
+            // Code-based verification finishes sign-in right here: the
+            // phone-only path never has to leave for a browser.
+            Text("We emailed a verification code to $pendingEmail. Enter it below.")
+            OutlinedTextField(key, { key = it }, label = { Text("Verification code") }, modifier = Modifier.fillMaxWidth())
+            Button(
+                onClick = {
+                    scope.launch {
+                        error = null
+                        response = runCatching { actions.verifyEmail(key.trim()) }
+                            .onSuccess { actions.initialize() }
+                            .getOrElse {
+                                error = it.message
+                                null
+                            }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Verify")
+            }
+            TextButton(
+                onClick = {
+                    scope.launch {
+                        error = null
+                        response = runCatching { actions.requestEmailVerification(pendingEmail) }
+                            .getOrElse {
+                                error = it.message
+                                null
+                            }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Resend code")
+            }
+        } else if (pendingEmail != null) {
             Text("We sent a verification link to $pendingEmail. Open that link, then return to Openbase and sign in.")
             Button(
                 onClick = {
